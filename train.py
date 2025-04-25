@@ -11,7 +11,6 @@ from PIL import Image
 
 def train(num_episodes=500, max_steps=2500, epsgreedy=True):
 
-    os.makedirs("mario_gifs", exist_ok=True)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     env = make_env()
     state_dim = env.observation_space.shape  # (4, 84, 84)
@@ -28,19 +27,11 @@ def train(num_episodes=500, max_steps=2500, epsgreedy=True):
 
         done = False
         frames = []
-        for _ in range(max_steps):
-        # while True:
+        # for _ in range(max_steps):
+        while True:
             action = agent.act(state, epsgreedy=epsgreedy)
             next_state, reward_e, done, _ = env.step(action)
             frame = env.render(mode='rgb_array')  # returns RGB frame (H, W, 3)
-            
-            # Save frame as individual image
-            frame_id = len(frames)
-            frame_save_path = f"mario_frames/episode_{episode+1}/frame_{frame_id:04d}.png"
-            os.makedirs(os.path.dirname(frame_save_path), exist_ok=True)
-            imageio.imwrite(frame_save_path, frame)
-
-            
             frames.append(Image.fromarray(frame))
             
             # reward_i = icm(state, next_state, action)
@@ -59,9 +50,6 @@ def train(num_episodes=500, max_steps=2500, epsgreedy=True):
             
             if done:
                 break
-        
-        # gif_path = "/content/minigrid.gif"
-        # imageio.mimsave(gif_path, frames, fps=5)
         
         save_gif(frames, episode)
         rewards_history.append(episode_reward)

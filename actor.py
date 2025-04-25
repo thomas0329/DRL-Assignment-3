@@ -26,7 +26,7 @@ class Mario:
         self.batch_size = 32
         self.gamma = 0.99
         self.epsilon = 1.0
-        self.epsilon_decay = 0.99999975
+        self.epsilon_decay = 0.995
         self.epsilon_min = 0.1
         self.update_target_every = 1000
         self.step_counter = 0

@@ -61,9 +61,11 @@ class DQN(nn.Module):
             nn.Conv2d(64, 64, kernel_size=3, stride=1),
             nn.ReLU(),
             nn.Flatten(),
-            NoisyLinear(3136, 512),
+            nn.Linear(3136, 512),
+            # NoisyLinear(3136, 512),
             nn.ReLU(),
-            NoisyLinear(512, output_dim)
+            nn.Linear(512, output_dim)
+            # NoisyLinear(512, output_dim)
         )
 
     def forward(self, x):
