@@ -1,84 +1,42 @@
-from nes_py.wrappers import JoypadSpace
-import gym_super_mario_bros
-from gym_super_mario_bros.actions import COMPLEX_MOVEMENT
-from DQN import DQNAgent
+
 import torch
-from PIL import Image
-import os
-from utils import save_vid
+from collections import deque
+from env import make_env
+import numpy as np
+from actor import Mario
 
-# COMPLEX_MOVEMENT = [
-#     ['NOOP'],
-#     ['right'],
-#     ['right', 'A'],
-#     ['right', 'B'],
-#     ['right', 'A', 'B'],
-#     ['A'],
-#     ['left'],
-#     ['left', 'A'],
-#     ['left', 'B'],
-#     ['left', 'A', 'B'],
-#     ['down'],
-#     ['up'],
-# ]
+def train(num_episodes=500):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    env = make_env()
+    state_dim = env.observation_space.shape  # (4, 84, 84)
+    action_dim = env.action_space.n          # usually 2 actions for Mario
 
-env = gym_super_mario_bros.make('SuperMarioBros-v0')
-env = JoypadSpace(env, COMPLEX_MOVEMENT)
-os.makedirs('frames', exist_ok=True)
+    mario = Mario(state_dim, action_dim, device)
 
-# action space COMPLEX_MOVEMENT
-# observation shape (240, 256, 3), numpy.ndarray
-agent = DQNAgent(action_size=12)
-num_episodes = 5
+    rewards_history = []
+    for episode in range(num_episodes):
+        state = env.reset()
+        state = torch.tensor(np.array(state), dtype=torch.float)
+        episode_reward = 0
 
-reward_history = [] # Store the total rewards for each episode
-eps_start = 1.0
-eps_end = 0.1
-eps_decay = 0.995
-epsilon = eps_start
-for episode in range(num_episodes):
+        done = False
+        while not done:
+            print('eps', mario.epsilon)
+            action = mario.act(state)
+            next_state, reward, done, info = env.step(action)
+            next_state = torch.tensor(np.array(next_state), dtype=torch.float)
 
-    observation = env.reset()
-    total_reward = 0
-    done = False
-    episode_loss = []
-    step = 0
-    frames = []
-    while not done:
-        # TODO: Select an action from the agent
-        action = agent.get_action(observation, epsilon)
-        next_observation, reward, done, info = env.step(action)
-        frame = env.render(mode='rgb_array')
-        frames.append(frame)
+            mario.cache((state, action, reward, next_state, done))
+            mario.learn()
 
-        Image.fromarray(frame).save(f'frames/episode{episode}_step{step}.png')
-        # TODO: Add the experience to the replay buffer and train the agent
-        agent.buffer.add(observation, action, reward, next_observation, done)
+            state = next_state
+            episode_reward += reward
 
-        agent.train(episode, episode_loss, step)
+        rewards_history.append(episode_reward)
+        avg_reward = np.mean(rewards_history[-100:])
+        print(f"Episode {episode+1} | Reward: {episode_reward:.1f} | Avg(100): {avg_reward:.1f} | Epsilon: {mario.epsilon:.2f}")
+        
 
-        # TODO: Update the state and total reward
-        total_reward += reward
-        observation = next_observation
-        step += 1
-
-    save_vid(frames, episode)
-    # print(f"Episode {episode}, Reward: {total_reward}, avg_loss: {sum(episode_loss) / len(episode_loss)}")
-    reward_history.append(total_reward)
-
-    if episode % 100 == 0:
-      last_100_avg_rwd = sum(reward_history[-100:]) / len(reward_history[-100:])
-      print(f"Episode {episode}, Avg of last 100 episodes: {last_100_avg_rwd}")
-      if last_100_avg_rwd > 250:
-        print('saving weights')
-        torch.save(agent.train_net.state_dict(), 'train_net.pth')
-      if last_100_avg_rwd > 260:
-        print("Early stopping")
-        break
-    epsilon = max(eps_end, epsilon*eps_decay)
-
-
-env.close()
-
-
+if __name__ == "__main__":
+    train()
 
