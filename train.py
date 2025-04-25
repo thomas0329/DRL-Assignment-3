@@ -1,40 +1,49 @@
-
+from ICM import ICM
 import torch
 from collections import deque
 from env import make_env
 import numpy as np
 from actor import Mario
 
-def train(num_episodes=500):
+def train(num_episodes=500, max_steps=2500):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     env = make_env()
     state_dim = env.observation_space.shape  # (4, 84, 84)
-    action_dim = env.action_space.n          # usually 2 actions for Mario
+    action_dim = env.action_space.n          
 
-    mario = Mario(state_dim, action_dim, device)
+    agent = Mario(state_dim, action_dim, device)
+    icm = ICM()
 
     rewards_history = []
     for episode in range(num_episodes):
         state = env.reset()
         state = torch.tensor(np.array(state), dtype=torch.float)
-        episode_reward = 0
+        episode_reward, episode_reward_ex = 0, 0
 
         done = False
-        while not done:
-            print('eps', mario.epsilon)
-            action = mario.act(state)
-            next_state, reward, done, info = env.step(action)
+        # for _ in range(max_steps):
+        while True:
+            action = agent.act(state, epsgreedy=False)
+            next_state, reward_e, done, _ = env.step(action)
+            
+            reward_i = icm(state, next_state, action)
+            # print('reward e', reward_e, 'reward i', reward_i)
+            reward = reward_e + reward_i
             next_state = torch.tensor(np.array(next_state), dtype=torch.float)
 
-            mario.cache((state, action, reward, next_state, done))
-            mario.learn()
+            agent.save((state, action, reward, next_state, done))
+            agent.update()
 
             state = next_state
+            episode_reward_ex += reward_e
             episode_reward += reward
+            
+            if done:
+                break
 
         rewards_history.append(episode_reward)
         avg_reward = np.mean(rewards_history[-100:])
-        print(f"Episode {episode+1} | Reward: {episode_reward:.1f} | Avg(100): {avg_reward:.1f} | Epsilon: {mario.epsilon:.2f}")
+        print(f"Episode {episode+1} | Reward ex: {episode_reward_ex:.1f} | Reward total: {episode_reward:.1f} | Avg(100): {avg_reward:.1f}")
         
 
 if __name__ == "__main__":

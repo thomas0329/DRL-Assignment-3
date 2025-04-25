@@ -69,7 +69,7 @@ class ICM(nn.Module):
         )
         self.CE = nn.CrossEntropyLoss()
         self.beta = 0.2
-        self.eta = 1
+        self.eta = 7905000
 
     def forward(self, state, next_state, action):
         state = self.to_model_input(state)

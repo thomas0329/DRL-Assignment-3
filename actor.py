@@ -31,36 +31,31 @@ class Mario:
         self.update_target_every = 1000
         self.step_counter = 0
 
-    def act(self, state):
-        if random.random() < self.epsilon:
+    def act(self, state, epsgreedy):
+        if epsgreedy and random.random() < self.epsilon:
             return random.randint(0, self.action_dim - 1)
         with torch.no_grad():
             state = state.unsqueeze(0).float().to(self.device)
             q_values = self.net(state)
             return q_values.argmax().item()
 
-    def cache(self, transition):
+    def save(self, transition):
         self.replay_buffer.append(transition)
 
-    def recall(self):
+    def sample(self):
         batch = random.sample(self.replay_buffer, self.batch_size)
         states, actions, rewards, next_states, dones = zip(*batch)
-        return (torch.stack(states),
-                torch.tensor(actions),
-                torch.tensor(rewards),
-                torch.stack(next_states),
-                torch.tensor(dones))
+        return (torch.stack(states).float().to(self.device),
+                torch.tensor(actions).long().to(self.device),
+                torch.tensor(rewards).float().to(self.device),
+                torch.stack(next_states).float().to(self.device),
+                torch.tensor(dones).float().to(self.device))
 
-    def learn(self):
+    def update(self):
         if len(self.replay_buffer) < self.batch_size:
             return
 
-        states, actions, rewards, next_states, dones = self.recall()
-        states = states.float().to(self.device)
-        next_states = next_states.float().to(self.device)
-        actions = actions.long().to(self.device)
-        rewards = rewards.float().to(self.device)
-        dones = dones.float().to(self.device)
+        states, actions, rewards, next_states, dones = self.sample()
 
         q_values = self.net(states)[range(self.batch_size), actions]
         with torch.no_grad():
