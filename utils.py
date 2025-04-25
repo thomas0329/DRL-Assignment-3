@@ -7,7 +7,7 @@ from torchvision import transforms as T
 import numpy as np
 import os
 
-def save_gif(frames, episode, save_dir):
+def save_gif(frames, episode, save_dir='./'):
     os.makedirs(f'{save_dir}/gifs', exist_ok=True)
     gif_path = f'{save_dir}/gifs/episode_{episode}.gif'
 

@@ -4,15 +4,21 @@ from collections import deque
 from env import make_env
 import numpy as np
 from actor import Mario
+import imageio
+import os
+from utils import save_gif
+from PIL import Image
 
-def train(num_episodes=500, max_steps=2500):
+def train(num_episodes=500, max_steps=2500, epsgreedy=True):
+
+    os.makedirs("mario_gifs", exist_ok=True)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     env = make_env()
     state_dim = env.observation_space.shape  # (4, 84, 84)
     action_dim = env.action_space.n          
 
     agent = Mario(state_dim, action_dim, device)
-    icm = ICM()
+    # icm = ICM()
 
     rewards_history = []
     for episode in range(num_episodes):
@@ -21,14 +27,27 @@ def train(num_episodes=500, max_steps=2500):
         episode_reward, episode_reward_ex = 0, 0
 
         done = False
-        # for _ in range(max_steps):
-        while True:
-            action = agent.act(state, epsgreedy=False)
+        frames = []
+        for _ in range(max_steps):
+        # while True:
+            action = agent.act(state, epsgreedy=epsgreedy)
             next_state, reward_e, done, _ = env.step(action)
+            frame = env.render(mode='rgb_array')  # returns RGB frame (H, W, 3)
             
-            reward_i = icm(state, next_state, action)
+            # Save frame as individual image
+            frame_id = len(frames)
+            frame_save_path = f"mario_frames/episode_{episode+1}/frame_{frame_id:04d}.png"
+            os.makedirs(os.path.dirname(frame_save_path), exist_ok=True)
+            imageio.imwrite(frame_save_path, frame)
+
+            
+            frames.append(Image.fromarray(frame))
+            
+            # reward_i = icm(state, next_state, action)
             # print('reward e', reward_e, 'reward i', reward_i)
-            reward = reward_e + reward_i
+            reward = reward_e
+            # reward = reward_e + reward_i
+            
             next_state = torch.tensor(np.array(next_state), dtype=torch.float)
 
             agent.save((state, action, reward, next_state, done))
@@ -40,7 +59,11 @@ def train(num_episodes=500, max_steps=2500):
             
             if done:
                 break
-
+        
+        # gif_path = "/content/minigrid.gif"
+        # imageio.mimsave(gif_path, frames, fps=5)
+        
+        save_gif(frames, episode)
         rewards_history.append(episode_reward)
         avg_reward = np.mean(rewards_history[-100:])
         print(f"Episode {episode+1} | Reward ex: {episode_reward_ex:.1f} | Reward total: {episode_reward:.1f} | Avg(100): {avg_reward:.1f}")
