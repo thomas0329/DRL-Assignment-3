@@ -17,11 +17,11 @@ class Mario:
         self.action_dim = action_dim
         self.device = device
 
-        self.net = DQN(state_dim, action_dim).to(device)
+        self.train_net = DQN(state_dim, action_dim).to(device)
         self.target_net = DQN(state_dim, action_dim).to(device)
-        self.target_net.load_state_dict(self.net.state_dict())
+        self.target_net.load_state_dict(self.train_net.state_dict())
 
-        self.optimizer = torch.optim.Adam(self.net.parameters(), lr=1e-4)
+        self.optimizer = torch.optim.Adam(self.train_net.parameters(), lr=1e-4)
         self.replay_buffer = deque(maxlen=100000)
         self.batch_size = 32
         self.gamma = 0.99
@@ -37,7 +37,7 @@ class Mario:
             return random.randint(0, self.action_dim - 1)
         with torch.no_grad():
             state = state.unsqueeze(0).float().to(self.device)
-            q_values = self.net(state)
+            q_values = self.train_net(state)
             return q_values.argmax().item()
         
         
@@ -59,9 +59,16 @@ class Mario:
             return
 
         states, actions, rewards, next_states, dones = self.sample()
+        
+        self.train_net.train()
+        self.target_net.train()
+        
+        self.train_net.reset_noise()
+        self.target_net.reset_noise()
 
-        q_values = self.net(states)[range(self.batch_size), actions]
+        q_values = self.train_net(states)[range(self.batch_size), actions]
         with torch.no_grad():
+            # dqn
             max_next_q = self.target_net(next_states).max(1)[0]
             target_q = rewards + self.gamma * max_next_q * (1 - dones)
 
@@ -72,7 +79,7 @@ class Mario:
 
         self.step_counter += 1
         if self.step_counter % self.update_target_every == 0:
-            self.target_net.load_state_dict(self.net.state_dict())
+            self.target_net.load_state_dict(self.train_net.state_dict())
 
         self.epsilon = max(self.epsilon * self.epsilon_decay, self.epsilon_min)
 

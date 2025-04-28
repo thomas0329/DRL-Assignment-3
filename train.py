@@ -8,8 +8,10 @@ import imageio
 import os
 from utils import save_gif
 from PIL import Image
+import logging
+from datetime import datetime
 
-def train(num_episodes=500, max_steps=2500, epsgreedy=True):
+def train(logger, dir, num_episodes=500, max_steps=2500, epsgreedy=True):
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     env = make_env()
@@ -17,9 +19,9 @@ def train(num_episodes=500, max_steps=2500, epsgreedy=True):
     action_dim = env.action_space.n          
 
     agent = Mario(state_dim, action_dim, device)
-    # icm = ICM()
+    icm = ICM()
 
-    rewards_history = []
+    rewards_history, rewards_history_ex = [], []
     for episode in range(num_episodes):
         state = env.reset()
         state = torch.tensor(np.array(state), dtype=torch.float)
@@ -34,10 +36,10 @@ def train(num_episodes=500, max_steps=2500, epsgreedy=True):
             frame = env.render(mode='rgb_array')  # returns RGB frame (H, W, 3)
             frames.append(Image.fromarray(frame))
             
-            # reward_i = icm(state, next_state, action)
-            # print('reward e', reward_e, 'reward i', reward_i)
-            reward = reward_e
-            # reward = reward_e + reward_i
+            reward_i = icm(state, next_state, action)
+            print('reward e', reward_e, 'reward i', reward_i)
+            # reward = reward_e
+            reward = reward_e + reward_i
             
             next_state = torch.tensor(np.array(next_state), dtype=torch.float)
 
@@ -51,12 +53,30 @@ def train(num_episodes=500, max_steps=2500, epsgreedy=True):
             if done:
                 break
         
-        save_gif(frames, episode)
+        save_gif(frames, episode, dir)
         rewards_history.append(episode_reward)
+        rewards_history_ex.append(episode_reward_ex)
         avg_reward = np.mean(rewards_history[-100:])
-        print(f"Episode {episode+1} | Reward ex: {episode_reward_ex:.1f} | Reward total: {episode_reward:.1f} | Avg(100): {avg_reward:.1f}")
+        avg_reward_ex = np.mean(rewards_history_ex[-100:])
+        logger.info(f"Episode {episode+1} | Reward ex: {episode_reward_ex:.1f} | Reward total: {episode_reward:.1f} | Avg(100): {avg_reward:.1f} | Avg Ex(100): {avg_reward_ex:.1f}")
         
 
 if __name__ == "__main__":
-    train()
+    # Setup logging
+    
+    # Create a timestamp
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")  # Format: YYYYMMDD_HHMMSS
+    log_filename = f"logs/{timestamp}/train_log.log"
+    dir = f"logs/{timestamp}"
+    os.makedirs(dir, exist_ok=True)
+    
+    logging.basicConfig(
+        filename=log_filename,
+        filemode="w",  # overwrite every time; use 'a' to append
+        level=logging.INFO,
+        format="%(asctime)s | %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S"
+    )
+    logger = logging.getLogger()
+    train(logger, dir)
 

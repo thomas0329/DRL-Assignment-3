@@ -69,7 +69,7 @@ class ICM(nn.Module):
         )
         self.CE = nn.CrossEntropyLoss()
         self.beta = 0.2
-        self.eta = 7905000
+        self.eta = 10 ** 8
 
     def forward(self, state, next_state, action):
         state = self.to_model_input(state)
@@ -85,6 +85,7 @@ class ICM(nn.Module):
         action = torch.tensor([action]).to(device=self.device)
 
         inverse_loss = self.CE(action_distr, action)
+        # print('inverse_loss', inverse_loss.item())
         next_state_feat_pred = self.forward_model(state_feat, action)
         forward_loss = F.mse_loss(next_state_feat_pred, next_state_feat)
         total_loss = (1 - self.beta) * inverse_loss + self.beta * forward_loss
