@@ -80,12 +80,13 @@ class Mario:
         self.optimizer.step()
 
         self.step_counter += 1
-        if self.step_counter % self.update_target_every == 0:
-            # soft update
-            for target_param, train_param in zip(self.target_net.parameters(), self.train_net.parameters()):
-                target_param.data.copy_(
-                    self.tau * target_param.data + (1.0 - self.tau) * train_param.data
-                )
+        # if self.step_counter % self.update_target_every == 0:
+        
+        # soft update at every step
+        for target_param, train_param in zip(self.target_net.parameters(), self.train_net.parameters()):
+            target_param.data.copy_(
+                self.tau * target_param.data + (1.0 - self.tau) * train_param.data
+            )
 
         self.epsilon = max(self.epsilon * self.epsilon_decay, self.epsilon_min)
 
