@@ -27,7 +27,7 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S"
 )
 
-def train(config, logger, dir):
+def train(config, logger, gif_dir):
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     env = make_env()
@@ -47,11 +47,14 @@ def train(config, logger, dir):
         frames = []
         
         while True:
+            # state: 1, 2, 3, curr=4
             action = agent.act(state, epsgreedy=config["epsgreedy"])
             # import pdb; pdb.set_trace()
+            # 4 action repeat
             next_state, reward_e, done, _ = env.step(action)
+            # next_state: 5, 6, 7, curr=8
             frame = env.render(mode='rgb_array')  # returns RGB frame (H, W, 3)
-            # print('frame', frame.shape)
+            # frame (240, 256, 3)
             frames.append(Image.fromarray(frame))
             
             # reward_i = icm(state, next_state, action)
@@ -71,7 +74,7 @@ def train(config, logger, dir):
             if done:
                 break
         
-        save_gif(frames, episode, dir)
+        save_gif(frames, episode, gif_dir)
         rewards_history.append(episode_reward)
         rewards_history_ex.append(episode_reward_ex)
         avg_reward = np.mean(rewards_history[-100:])
@@ -85,6 +88,7 @@ def train(config, logger, dir):
             # "avg_reward_ex": avg_reward_ex,
             # "buffer_len": len(agent.replay_buffer)
         }, step=episode)
+        
 
         
 
@@ -98,5 +102,6 @@ if __name__ == "__main__":
     config = wandb.config
     
     # logger = logging.getLogger()
-    train(config, wandb, dir)
+    gif_dir = os.path.join(wandb.run.dir, "gameplay_gifs")
+    train(config, wandb, gif_dir)
 

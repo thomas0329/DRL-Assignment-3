@@ -15,9 +15,10 @@ class SkipFrame(gym.Wrapper):
         self._skip = skip
 
     def step(self, action):
-        # print('step of skip frame called')
+        
         total_reward = 0.0
         for _ in range(self._skip):
+            
             obs, reward, done, info = self.env.step(action)
             total_reward += reward
             if done:

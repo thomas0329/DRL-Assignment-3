@@ -30,7 +30,7 @@ class Mario:
         self.epsilon_min = 0.1
         self.update_target_every = 10000
         self.step_counter = 0
-        self.tau = 1e-3
+        self.tau = 1e-4
 
     def act(self, state, epsgreedy):
         
