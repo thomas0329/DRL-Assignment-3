@@ -5,5 +5,3 @@ argparse
 numpy==1.23.5
 gym==0.23.1
 gym_super_mario_bros
-
-torchrl==0.4.0

@@ -4,14 +4,14 @@ from collections import deque
 from env import make_env
 import numpy as np
 from actor import Mario
-import imageio
+# import imageio
 import os
 from utils import save_gif
 from PIL import Image
 import logging
 from datetime import datetime
 
-def train(logger, dir, num_episodes=500, max_steps=2500, epsgreedy=True):
+def train(logger, dir, num_episodes=5000, max_steps=2500, epsgreedy=True):
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     env = make_env()
@@ -19,7 +19,7 @@ def train(logger, dir, num_episodes=500, max_steps=2500, epsgreedy=True):
     action_dim = env.action_space.n          
 
     agent = Mario(state_dim, action_dim, device)
-    icm = ICM()
+    # icm = ICM()
 
     rewards_history, rewards_history_ex = [], []
     for episode in range(num_episodes):
@@ -29,21 +29,23 @@ def train(logger, dir, num_episodes=500, max_steps=2500, epsgreedy=True):
 
         done = False
         frames = []
-        # for _ in range(max_steps):
+        
         while True:
             action = agent.act(state, epsgreedy=epsgreedy)
+            # import pdb; pdb.set_trace()
             next_state, reward_e, done, _ = env.step(action)
             frame = env.render(mode='rgb_array')  # returns RGB frame (H, W, 3)
+            # print('frame', frame.shape)
             frames.append(Image.fromarray(frame))
             
-            reward_i = icm(state, next_state, action)
-            print('reward e', reward_e, 'reward i', reward_i)
-            # reward = reward_e
-            reward = reward_e + reward_i
+            # reward_i = icm(state, next_state, action)
+            # print('reward e', reward_e, 'reward i', reward_i)
+            reward = reward_e
+            # reward = reward_e + reward_i
             
             next_state = torch.tensor(np.array(next_state), dtype=torch.float)
 
-            agent.save((state, action, reward, next_state, done))
+            agent.save((state, action, reward, next_state, done), logger)
             agent.update()
 
             state = next_state
@@ -58,7 +60,7 @@ def train(logger, dir, num_episodes=500, max_steps=2500, epsgreedy=True):
         rewards_history_ex.append(episode_reward_ex)
         avg_reward = np.mean(rewards_history[-100:])
         avg_reward_ex = np.mean(rewards_history_ex[-100:])
-        logger.info(f"Episode {episode+1} | Reward ex: {episode_reward_ex:.1f} | Reward total: {episode_reward:.1f} | Avg(100): {avg_reward:.1f} | Avg Ex(100): {avg_reward_ex:.1f}")
+        logger.info(f"Episode {episode+1} | Reward ex: {episode_reward_ex:.1f} | Reward total: {episode_reward:.1f} | Avg(100): {avg_reward:.1f} | Avg Ex(100): {avg_reward_ex:.1f} | buffer len: {len(agent.replay_buffer)}/{agent.replay_buffer.maxlen}")
         
 
 if __name__ == "__main__":

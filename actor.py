@@ -1,8 +1,8 @@
 
 import torch
-from unused.DQN_lunar import MarioNet
-from torchrl.data import TensorDictReplayBuffer, LazyMemmapStorage
-from tensordict import TensorDict
+# from unused.DQN_lunar import MarioNet
+# from torchrl.data import TensorDictReplayBuffer, LazyMemmapStorage
+# from tensordict import TensorDict
 import torch.nn.functional as F
 
 import torch
@@ -22,14 +22,15 @@ class Mario:
         self.target_net.load_state_dict(self.train_net.state_dict())
 
         self.optimizer = torch.optim.Adam(self.train_net.parameters(), lr=1e-4)
-        self.replay_buffer = deque(maxlen=100000)
+        self.replay_buffer = deque(maxlen=250000)   # 758 episodes
         self.batch_size = 32
         self.gamma = 0.99
         self.epsilon = 1.0
         self.epsilon_decay = 0.995
         self.epsilon_min = 0.1
-        self.update_target_every = 1000
+        self.update_target_every = 10000
         self.step_counter = 0
+        self.tau = 1e-3
 
     def act(self, state, epsgreedy):
         
@@ -40,10 +41,11 @@ class Mario:
             q_values = self.train_net(state)
             return q_values.argmax().item()
         
-        
-
-    def save(self, transition):
+    def save(self, transition, logger):
         self.replay_buffer.append(transition)
+        if len(self.replay_buffer) == self.replay_buffer.maxlen - 1:
+            logger.info('buffer full!')
+            
 
     def sample(self):
         batch = random.sample(self.replay_buffer, self.batch_size)
@@ -60,11 +62,11 @@ class Mario:
 
         states, actions, rewards, next_states, dones = self.sample()
         
-        self.train_net.train()
-        self.target_net.train()
+        # self.train_net.train()
+        # self.target_net.train()
         
-        self.train_net.reset_noise()
-        self.target_net.reset_noise()
+        # self.train_net.reset_noise()
+        # self.target_net.reset_noise()
 
         q_values = self.train_net(states)[range(self.batch_size), actions]
         with torch.no_grad():
@@ -79,7 +81,11 @@ class Mario:
 
         self.step_counter += 1
         if self.step_counter % self.update_target_every == 0:
-            self.target_net.load_state_dict(self.train_net.state_dict())
+            # soft update
+            for target_param, train_param in zip(self.target_net.parameters(), self.train_net.parameters()):
+                target_param.data.copy_(
+                    self.tau * target_param.data + (1.0 - self.tau) * train_param.data
+                )
 
         self.epsilon = max(self.epsilon * self.epsilon_decay, self.epsilon_min)
 
