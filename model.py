@@ -24,10 +24,13 @@ class NoisyLinear(nn.Module):
     def reset_parameters(self):
         mu_range = 1 / math.sqrt(self.in_features)
         self.weight_mu.data.uniform_(-mu_range, mu_range)
-        self.weight_sigma.data.fill_(self.sigma_init * mu_range)
+        # self.weight_sigma.data.fill_(self.sigma_init * mu_range)
+        self.weight_sigma.data.fill_(self.sigma_init)
+
 
         self.bias_mu.data.uniform_(-mu_range, mu_range)
-        self.bias_sigma.data.fill_(self.sigma_init * mu_range)
+        # self.bias_sigma.data.fill_(self.sigma_init * mu_range)
+        self.bias_sigma.data.fill_(self.sigma_init)
 
     def reset_noise(self):
         epsilon_in = self._scale_noise(self.in_features)

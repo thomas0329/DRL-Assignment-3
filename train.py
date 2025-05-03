@@ -64,7 +64,7 @@ def train(config, logger, gif_dir):
             
             next_state = torch.tensor(np.array(next_state), dtype=torch.float)
 
-            agent.save((state, action, reward, next_state, done), logger)
+            agent.save((state, action, reward, next_state, done))
             agent.update()
 
             state = next_state

@@ -18,6 +18,9 @@ class Mario:
         self.device = device
 
         self.train_net = DQN(state_dim, action_dim).to(device)
+        print('initially')
+        print('noisy1', self.train_net.noisy1.weight_sigma.mean())
+        print('noisy2', self.train_net.noisy2.weight_sigma.mean())
         self.target_net = DQN(state_dim, action_dim).to(device)
         self.target_net.load_state_dict(self.train_net.state_dict())
         self.target_net.eval()
@@ -31,7 +34,7 @@ class Mario:
         self.epsilon = 1.0
         self.epsilon_decay = 0.995
         self.epsilon_min = 0.1
-        self.check_noise_every = 10000
+        self.check_noise_every = 10
         self.step_counter = 0
         self.tau = 3e-5
         
@@ -45,12 +48,14 @@ class Mario:
             q_values = self.train_net(state)
             action = q_values.argmax().item()
             self.train_net.reset_noise()
+            # print('noisy1', self.train_net.noisy1.weight_sigma.mean())
+            # print('noisy2', self.train_net.noisy2.weight_sigma.mean())
             return action
         
-    def save(self, transition, logger):
+    def save(self, transition):
         self.replay_buffer.append(transition)
         if len(self.replay_buffer) == self.replay_buffer.maxlen - 1:
-            logger.info('buffer full!')
+            print('buffer full!')
             
 
     def sample(self):
@@ -79,11 +84,13 @@ class Mario:
         self.optimizer.step()
         
         self.train_net.reset_noise()    # why?
+        # print('noisy1', self.train_net.noisy1.weight_sigma.mean())
+        # print('noisy2', self.train_net.noisy2.weight_sigma.mean())
 
         self.step_counter += 1
-        if self.step_counter % self.check_noise_every == 0:
-            print('noisy1', self.train_net.noisy1.weight_sigma.mean())
-            print('noisy2', self.train_net.noisy2.weight_sigma.mean())
+        # if self.step_counter % self.check_noise_every == 0:
+        #     print('noisy1', self.train_net.noisy1.weight_sigma.mean())
+        #     print('noisy2', self.train_net.noisy2.weight_sigma.mean())
         
         # soft update at every step
         for target_param, train_param in zip(self.target_net.parameters(), self.train_net.parameters()):
