@@ -12,18 +12,25 @@ from gym_super_mario_bros.actions import COMPLEX_MOVEMENT
 class SkipFrame(gym.Wrapper):
     def __init__(self, env, skip):
         super().__init__(env)
-        self._skip = skip
+        self.skip = skip
+        self.obs_buffer = np.zeros((2,) + self.env.observation_space.shape)
 
     def step(self, action):
         
         total_reward = 0.0
-        for _ in range(self._skip):
+        for i in range(self.skip):
             
             obs, reward, done, info = self.env.step(action)
+            if i == self.skip - 2:
+                self.obs_buffer[0] = obs
+            if i == self.skip - 1:
+                self.obs_buffer[1] = obs
             total_reward += reward
             if done:
                 break
-        return obs, total_reward, done, info
+        max_obs = np.maximum(self.obs_buffer[0], self.obs_buffer[1])
+        
+        return max_obs, total_reward, done, info
 
 class GrayScaleObservation(gym.ObservationWrapper):
     def __init__(self, env):
@@ -52,10 +59,12 @@ def make_env():
     env = gym_super_mario_bros.make('SuperMarioBros-v0')
     env = JoypadSpace(env, COMPLEX_MOVEMENT)
     
-    env = SkipFrame(env, skip=4)
+    env = SkipFrame(env, skip=6)
     env = GrayScaleObservation(env)
     env = ResizeObservation(env, shape=84)
     env = FrameStack(env, num_stack=4)
+    
+    
     return env
 
 

@@ -97,7 +97,7 @@ if __name__ == "__main__":
     wandb.init(project="mario", config={
         "num_episodes": 5000, 
         "max_steps": 2500, 
-        "epsgreedy": True
+        "epsgreedy": False
     })
     config = wandb.config
     

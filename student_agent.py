@@ -25,6 +25,4 @@ class Agent(object):
         else:
             self.framestack.append(observation)
         
-        
-        
         return self.action_space.sample()

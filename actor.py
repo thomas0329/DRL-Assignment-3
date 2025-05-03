@@ -20,17 +20,21 @@ class Mario:
         self.train_net = DQN(state_dim, action_dim).to(device)
         self.target_net = DQN(state_dim, action_dim).to(device)
         self.target_net.load_state_dict(self.train_net.state_dict())
+        self.target_net.eval()
 
-        self.optimizer = torch.optim.Adam(self.train_net.parameters(), lr=1e-4)
-        self.replay_buffer = deque(maxlen=250000)   # 758 episodes
-        self.batch_size = 32
+        self.optimizer = torch.optim.Adam(self.train_net.parameters(), lr=1e-4) 
+        self.replay_buffer = deque(maxlen=50000)   # 300 episodes
+        self.batch_size = 64
+        # self.gamma = 0.9
         self.gamma = 0.99
+        # self.gamma = 1
         self.epsilon = 1.0
         self.epsilon_decay = 0.995
         self.epsilon_min = 0.1
-        self.update_target_every = 10000
+        self.check_noise_every = 10000
         self.step_counter = 0
-        self.tau = 1e-4
+        self.tau = 3e-5
+        
 
     def act(self, state, epsgreedy):
         
@@ -39,7 +43,9 @@ class Mario:
         with torch.no_grad():
             state = state.unsqueeze(0).float().to(self.device)
             q_values = self.train_net(state)
-            return q_values.argmax().item()
+            action = q_values.argmax().item()
+            self.train_net.reset_noise()
+            return action
         
     def save(self, transition, logger):
         self.replay_buffer.append(transition)
@@ -61,26 +67,23 @@ class Mario:
             return
 
         states, actions, rewards, next_states, dones = self.sample()
-        
-        # self.train_net.train()
-        # self.target_net.train()
-        
-        # self.train_net.reset_noise()
-        # self.target_net.reset_noise()
 
         q_values = self.train_net(states)[range(self.batch_size), actions]
         with torch.no_grad():
-            # dqn
             max_next_q = self.target_net(next_states).max(1)[0]
             target_q = rewards + self.gamma * max_next_q * (1 - dones)
-
+        
         loss = F.smooth_l1_loss(q_values, target_q)
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
+        
+        self.train_net.reset_noise()    # why?
 
         self.step_counter += 1
-        # if self.step_counter % self.update_target_every == 0:
+        if self.step_counter % self.check_noise_every == 0:
+            print('noisy1', self.train_net.noisy1.weight_sigma.mean())
+            print('noisy2', self.train_net.noisy2.weight_sigma.mean())
         
         # soft update at every step
         for target_param, train_param in zip(self.target_net.parameters(), self.train_net.parameters()):
