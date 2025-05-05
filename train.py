@@ -37,58 +37,53 @@ def train(config, logger, gif_dir):
     agent = Mario(state_dim, action_dim, device)
     # icm = ICM()
 
-    rewards_history, rewards_history_ex = [], []
+    rewards_history = []
+    best_avg_reward = 0
     for episode in range(config["num_episodes"]):
         state = env.reset()
-        state = torch.tensor(np.array(state), dtype=torch.float)
+        state = torch.tensor(np.array(state), dtype=torch.float32) / 255.0
+        # state = torch.tensor(np.array(state), dtype=torch.float)
+        # print('state', state.shape)
         episode_reward, episode_reward_ex = 0, 0
 
         done = False
         frames = []
-        
+        step = 0
         while True:
-            # state: 1, 2, 3, curr=4
-            action = agent.act(state, epsgreedy=config["epsgreedy"])
-            # import pdb; pdb.set_trace()
-            # 4 action repeat
-            next_state, reward_e, done, _ = env.step(action)
-            # next_state: 5, 6, 7, curr=8
-            frame = env.render(mode='rgb_array')  # returns RGB frame (H, W, 3)
-            # frame (240, 256, 3)
-            frames.append(Image.fromarray(frame))
             
-            # reward_i = icm(state, next_state, action)
-            # print('reward e', reward_e, 'reward i', reward_i)
-            reward = reward_e
-            # reward = reward_e + reward_i
-            
-            next_state = torch.tensor(np.array(next_state), dtype=torch.float)
+            next_state, reward, done = agent.n_step_act(env, state, frames, epsgreedy=config["epsgreedy"])
+            # action = agent.act(state, epsgreedy=config["epsgreedy"])
+            # next_state, reward_e, done, _ = env.step(action)
 
-            agent.save((state, action, reward, next_state, done))
             agent.update()
+            episode_reward += reward
+            step += 1
+            
+            if done or step > config["max_steps"]:
+                break
 
             state = next_state
-            episode_reward_ex += reward_e
-            episode_reward += reward
             
-            if done:
-                break
-        
         save_gif(frames, episode, gif_dir)
         rewards_history.append(episode_reward)
-        rewards_history_ex.append(episode_reward_ex)
+        
         avg_reward = np.mean(rewards_history[-100:])
-        avg_reward_ex = np.mean(rewards_history_ex[-100:])
-        # logger.log(f"Episode {episode+1} | Reward ex: {episode_reward_ex:.1f} | Reward total: {episode_reward:.1f} | Avg(100): {avg_reward:.1f} | Avg Ex(100): {avg_reward_ex:.1f} | buffer len: {len(agent.replay_buffer)}/{agent.replay_buffer.maxlen}")
+
+        print(f"Episode {episode+1} | Reward total: {episode_reward:.1f} | Avg(100): {avg_reward:.1f} | buffer len: {len(agent.replay_buffer)}/{agent.replay_buffer.maxlen} | epsilon: {agent.epsilon}")
+
         logger.log({
             "episode": episode,
             # "reward_ex": episode_reward_ex,
             # "reward_total": episode_reward,
             "avg_reward": avg_reward,
             # "avg_reward_ex": avg_reward_ex,
-            # "buffer_len": len(agent.replay_buffer)
+            "buffer_len": len(agent.replay_buffer),
+
+            "noise1": agent.train_net.noisy1.weight_sigma.mean(),
+            "noise2": agent.train_net.noisy2.weight_sigma.mean(),
         }, step=episode)
-        
+        if avg_reward > best_avg_reward:
+            torch.save(agent.train_net.state_dict(), "train_net.pth")
 
         
 
@@ -96,7 +91,7 @@ if __name__ == "__main__":
     
     wandb.init(project="mario", config={
         "num_episodes": 5000, 
-        "max_steps": 2500, 
+        "max_steps": 2500,
         "epsgreedy": False
     })
     config = wandb.config
