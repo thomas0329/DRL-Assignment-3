@@ -74,13 +74,14 @@ class Mario:
         return next_state, reward, done
         
 
-    def act(self, state, epsgreedy):
+    def act(self, state, epsgreedy=False):
         
         if epsgreedy and random.random() < self.epsilon:
             action = random.randint(0, self.action_dim - 1)
         with torch.no_grad():
             # print('state', type(state)) # torch.Tensor
             self.train_net.reset_noise()
+            # print('state', type(state), state.shape)
             state = state.unsqueeze(0).float().to(self.device)
             q_values = self.train_net(state)
             action = q_values.argmax().item()
